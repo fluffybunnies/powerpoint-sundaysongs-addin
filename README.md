@@ -39,9 +39,8 @@ cp /Applications/Microsoft\ Office\ 2011/Office/Add-Ins/SundaySongs.ppam ./
 
 
 ## @todo
-- Get to work on Windows
-	- Tested on Mac, not Windows yet
-	- E.g. directory separators, HD root prefix, etc
+- Install script for Windows + Mac
+	- Just copy the .ppam to all native PowerPoint directories
 - (bonus) Create docx file with formatted song list
 	- Add to version control ignore
 
@@ -56,13 +55,13 @@ Sub findAndImport()
 	Dim addSlidesAfterIndex As Long
 	Dim blankSlide As Slide
 
-	If Len(ActivePresentation.Path) = 0 Then
+	If Len(ActivePresentation.path) = 0 Then
 		MsgBox "Please save your presentation before running"
 		Exit Sub
 	End If
 
 	' Remove all but first and last slides
-	Do While ActivePresentation.Slides.Count > 2
+	Do While ActivePresentation.Slides.count > 2
 		ActivePresentation.Slides(2).Delete
 	Loop
 
@@ -76,15 +75,21 @@ Sub findAndImport()
 				Exit For
 			End If
 		Next file
-		addSlidesAfterIndex = ActivePresentation.Slides.Count-1
+		addSlidesAfterIndex = ActivePresentation.Slides.count - 1
 		If addSlidesAfterIndex < 1 Then addSlidesAfterIndex = 1
 		If Not IsNull(fileMatch) Then
 			Debug.Print "MATCH: " & song & " == " & fileMatch(0)
-			ActivePresentation.Slides.InsertFromFile replace(replace(fileMatch(1),"Macintosh HD",""),":","/"), addSlidesAfterIndex
+			If onMac() Then
+				fileToInsert = Replace(Replace(fileMatch(1), "Macintosh HD", ""), ":", "/")
+			Else
+				fileToInsert = fileMatch(1)
+			End If
+			Debug.Print "fileToInsert: " & fileToInsert
+			ActivePresentation.Slides.InsertFromFile fileToInsert, addSlidesAfterIndex
 		Else
 			Debug.Print "NO MATCH: " & song
 			'Set blankSlide = ActivePresentation.Slides.AddSlide(addSlidesAfterIndex+1, ActivePresentation.Slides(1).CustomLayout)
-			Set blankSlide = ActivePresentation.Slides.AddSlide(addSlidesAfterIndex+1, ActivePresentation.Designs(1).SlideMaster.CustomLayouts(1))
+			Set blankSlide = ActivePresentation.Slides.AddSlide(addSlidesAfterIndex + 1, ActivePresentation.Designs(1).SlideMaster.CustomLayouts(1))
 			blankSlide.Shapes.Title.TextFrame.TextRange.Text = song
 		End If
 	Next song
@@ -95,7 +100,7 @@ Function getSongsDirectory()
 	' Application.FileDialog(msoFileDialogFolderPicker)
 	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
 	' getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
-	getSongsDirectory = ActivePresentation.Path & ":"
+	getSongsDirectory = appendDirectorySeparator(ActivePresentation.path)
 End Function
 
 Function getSongListInput() As Collection
@@ -106,10 +111,14 @@ Function getSongListInput() As Collection
 	Dim songs As New Collection
 	Dim i As Integer
 
-	notes = ActivePresentation.Slides(1).NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.text
+	notes = ActivePresentation.Slides(1).NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.Text
 	'lines = Split(notes, vbLf)
 	'lines = Split(notes, vbCrLf)
-	lines = Split(notes, vbNewLine)
+	If onMac() Then
+		lines = Split(notes, vbNewLine)
+	Else
+		lines = Split(notes, Strings.Chr(13))
+	End If
 	For i = 0 To UBound(lines)
 		line = Trim(lines(i))
 		If line <> "" Then
@@ -127,19 +136,17 @@ Function listFiles(ByVal path As String) As Collection
 	Dim subfolder As Variant
 	Dim subfolderItem As Variant
 
-	fileName = dir(path, vbDirectory)
+	fileName = Dir(path, vbDirectory)
 	Do While Len(fileName) > 0
-		If Left(fileName,1) <> "." Then
+		If Left(fileName, 1) <> "." Then
 			If Right(fileName, 5) = ".pptx" Or Right(fileName, 4) = ".ppt" Then
-				' Note: At least on mac, replaces end bits of long names with weird stuff, so compare first 18 chars
-				' strPiece = Left(fileName, 18)
 				items.Add Array(fileName, path & fileName)
 			ElseIf IsDir(path & fileName) Then
 				' Cannot recurse here, see WARNING above
-				subfolders.Add path & fileName & ":"
+				subfolders.Add appendDirectorySeparator(path & fileName)
 			End If
 		End If
-		fileName = dir
+		fileName = Dir
 	Loop
 	For Each subfolder In subfolders
 		For Each subfolderItem In listFiles(subfolder)
@@ -156,9 +163,11 @@ Function IsDir(ByVal path As String) As Boolean
 End Function
 
 Function normalize(ByVal str As String) As String
-	str = trim(str)
-	str = lcase(str)
-	str = replace(replace(str,".pptx",""),".ppt","")
+	' Note: On mac, replaces end bits of long names with weird stuff. @todo: there's a way to fix this
+	If onMac() Then str = Left(str, 18)
+	str = Trim(str)
+	str = LCase(str)
+	str = Replace(Replace(str, ".pptx", ""), ".ppt", "")
 	str = stripNonAlphaNumeric(str)
 	normalize = str
 End Function
@@ -174,6 +183,24 @@ Function stripNonAlphaNumeric(ByVal str As String) As String
 		End Select
 	Next
 	stripNonAlphaNumeric = strStripped
+End Function
+
+Function appendDirectorySeparator(ByVal path As String) As String
+	Dim sep As String
+	sep = getDirectorySeparatorFromPath(path)
+	If Right(path, 1) <> sep Then path = path & sep
+	appendDirectorySeparator = path
+End Function
+
+Function getDirectorySeparatorFromPath(ByVal path As String) As String
+	Dim sep As String
+	sep = "\"
+	If UBound(Split(path, ":")) > 1 Then sep = ":"
+	getDirectorySeparatorFromPath = sep
+End Function
+
+Function onMac() As Boolean
+	If getDirectorySeparatorFromPath(ActivePresentation.path) = ":" Then onMac = True
 End Function
 
 

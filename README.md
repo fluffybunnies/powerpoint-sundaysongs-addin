@@ -36,32 +36,58 @@ Concatenate several already-existing PPTs into current presentation.
 
 
 ## @todo
-- Test listing files in a directory
-- Prompt for input
-	- UserInput
-		- Song list textbox
-		- (optional) Parent directory to search through, set default
-	- OR, use the Notes of first slide
-- Write script:
-	- Search for song files
-	- Truncate all but first and last slide
-	- Import each
-		- Insert notification slide if song not found
-	- Get to work on both Windows and Max
-		- E.g. directory separators, HD root prefix, etc
-	- (bonus) Create docx file with formatted song list
-		- Add to version control ignore
-
+- Resolve the hardcoding of getSongsDirectory()
+- Get to work on both Windows and Mac
+	- E.g. directory separators, HD root prefix, etc
+- (bonus) Create docx file with formatted song list
+	- Add to version control ignore
 
 
 <!--
 
-Sub testGetSongListInput()
-	Dim v As Variant
-	For Each v In getSongListInput()
-		Debug.Print "Song: " & v
-	Next v
+Sub testFindAndImport()
+	Dim song As Variant
+	Dim files As Collection
+	Dim file As Variant
+	Dim fileMatch As Variant
+	Dim addSlidesAfterIndex As Long
+	Dim blankSlide As Slide
+
+	' Remove all but first and last slides
+	Do While ActivePresentation.Slides.Count > 2
+		ActivePresentation.Slides(2).Delete
+	Loop
+
+	Set files = listFiles(getSongsDirectory())
+	For Each song In getSongListInput()
+		fileMatch = Null
+		For Each file In files
+			' Normalize
+			If normalize(song) = normalize(file(0)) Then
+				fileMatch = file
+				Exit For
+			End If
+		Next file
+		addSlidesAfterIndex = ActivePresentation.Slides.Count-1
+		If addSlidesAfterIndex < 0 Then addSlidesAfterIndex = 0
+		If Not IsNull(fileMatch) Then
+			Debug.Print "MATCH: " & song & " == " & fileMatch(0)
+			ActivePresentation.Slides.InsertFromFile replace(replace(fileMatch(1),"Macintosh HD",""),":","/"), addSlidesAfterIndex
+		Else
+			Debug.Print "NO MATCH: " & song
+			'Set blankSlide = ActivePresentation.Slides.AddSlide(addSlidesAfterIndex+1, ActivePresentation.Slides(1).CustomLayout)
+			Set blankSlide = ActivePresentation.Slides.AddSlide(addSlidesAfterIndex+1, ActivePresentation.Designs(1).SlideMaster.CustomLayouts(1))
+			blankSlide.Shapes.Title.TextFrame.TextRange.Text = song
+		End If
+	Next song
 End Sub
+
+Function getSongsDirectory()
+	' Application.FileDialog not found?
+	' Application.FileDialog(msoFileDialogFolderPicker)
+	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
+	getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
+End Function
 
 Function getSongListInput() As Collection
 	' Songs separated by newlines or semicolons in first slide notes
@@ -82,36 +108,6 @@ Function getSongListInput() As Collection
 		End If
 	Next i
 	Set getSongListInput = songs
-End Function
-
-
-
-
-Sub testImportPpt()
-	Dim filePath As String
-	filePath = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/Give Me Faith.pptx"
-	ActivePresentation.Slides.InsertFromFile filePath, 0
-	Debug.Print "sup"
-End Sub
-
-
-
-
-Sub testListFiles()
-	Dim dirPath As String
-	Dim v As Variant
-
-	dirPath = getSongsDirectory()
-	For Each v In listFiles(dirPath)
-		Debug.Print v(0) & " | " & v(1)
-	Next v
-End Sub
-
-Function getSongsDirectory()
-	' Application.FileDialog not found?
-	' Application.FileDialog(msoFileDialogFolderPicker)
-	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
-	getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
 End Function
 
 Function listFiles(ByVal path As String) As Collection
@@ -150,7 +146,26 @@ Function IsDir(ByVal path As String) As Boolean
 	End If
 End Function
 
+Function normalize(ByVal str As String) As String
+	str = trim(str)
+	str = lcase(str)
+	str = replace(replace(str,".pptx",""),".ppt","")
+	str = stripNonAlphaNumeric(str)
+	normalize = str
+End Function
 
+Function stripNonAlphaNumeric(ByVal str As String) As String
+	Dim i As Integer
+	Dim strStripped As String
+
+	For i = 1 To Len(str)
+		Select Case Asc(Mid(str, i, 1))
+			Case 48 To 57, 65 To 90, 97 To 122:
+				strStripped = strStripped & Mid(str, i, 1)
+		End Select
+	Next
+	stripNonAlphaNumeric = strStripped
+End Function
 
 
 

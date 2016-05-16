@@ -39,6 +39,9 @@ cp /Applications/Microsoft\ Office\ 2011/Office/Add-Ins/SundaySongs.ppam ./
 
 
 ## @todo
+- Update matching logic to do a second pass with lower char count prefix in normalize() if can't find the first time
+	- E.g. Your Love Never Fails => Your Love Never Fails (Nothing Can Separate)
+	- E.g. Like a River => Like a River Before Us (Lead on O King)
 - Install script for Windows + Mac
 	- Just copy the .ppam to all native PowerPoint directories
 		- "/Applications/Microsoft Office 2011/Office/Add-Ins"

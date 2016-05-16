@@ -47,12 +47,45 @@ Concatenate several already-existing PPTs into current presentation.
 	- Truncate all but first and last slide
 	- Import each
 		- Insert notification slide if song not found
+	- Get to work on both Windows and Max
+		- E.g. directory separators, HD root prefix, etc
 	- (bonus) Create docx file with formatted song list
 		- Add to version control ignore
 
 
 
 <!--
+
+Sub testGetSongListInput()
+	Dim v As Variant
+	For Each v In getSongListInput()
+		Debug.Print "Song: " & v
+	Next v
+End Sub
+
+Function getSongListInput() As Collection
+	' Songs separated by newlines or semicolons in first slide notes
+	Dim notes As String
+	Dim lines() As String
+	Dim line As String
+	Dim songs As New Collection
+	Dim i As Integer
+
+	notes = ActivePresentation.Slides(1).NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.text
+	'lines = Split(notes, vbLf)
+	'lines = Split(notes, vbCrLf)
+	lines = Split(notes, vbNewLine)
+	For i = 0 To UBound(lines)
+		line = Trim(lines(i))
+		If line <> "" Then
+			songs.Add line
+		End If
+	Next i
+	Set getSongListInput = songs
+End Function
+
+
+
 
 Sub testImportPpt()
 	Dim filePath As String
@@ -62,73 +95,66 @@ Sub testImportPpt()
 End Sub
 
 
-Sub testListFiles()
-    Dim dirPath As String
-    Dim result() As String
-    Dim i As Integer
 
-    dirPath = getSongsDirectory()
-    result = listFiles(dirPath)
-    For i = 0 To UBound(result)
-        Debug.Print result(i)
-        'MsgBox result(i)
-    Next i
+
+Sub testListFiles()
+	Dim dirPath As String
+	Dim v As Variant
+
+	dirPath = getSongsDirectory()
+	For Each v In listFiles(dirPath)
+		Debug.Print v(0) & " | " & v(1)
+	Next v
 End Sub
 
-Private Function getSongsDirectory()
-    ' Application.FileDialog not found?
-    ' Application.FileDialog(msoFileDialogFolderPicker)
-    ' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
-    getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
+Function getSongsDirectory()
+	' Application.FileDialog not found?
+	' Application.FileDialog(msoFileDialogFolderPicker)
+	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
+	getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
 End Function
 
-Private Function listFiles(ByVal path As String) As String()
-    ' WARNING: This isn't multi-client safe, could result in infinite while()
-    Dim result() As String
-    ReDim result(0) As String
-    Dim n As Integer
-    Dim fileName As String
-    Dim subfolders As New Collection
-    Dim subfolder As Variant
-    Dim subresult() As String
-    Dim i As Integer
+Function listFiles(ByVal path As String) As Collection
+	' WARNING: This isn't multi-client safe, could result in infinite while()
+	Dim items As New Collection
+	Dim fileName As String
+	Dim subfolders As New Collection
+	Dim subfolder As Variant
+	Dim subfolderItem As Variant
 
-    fileName = dir(path, vbDirectory)
-    Do While Len(fileName) > 0
-        If fileName <> "." And fileName <> ".." Then
-            If Right(fileName, 5) = ".pptx" Or Right(fileName, 4) = ".ppt" Then
-                ' Note: At least on mac, replaces end bits of long names with weird stuff, so compare first 18 chars
-                ' strPiece = Left(fileName, 18)
-                ReDim Preserve result(n) As String
-                result(n) = path & fileName
-                n = n + 1
-            ElseIf IsDir(path & fileName) Then
-                ' Cannot recurse here, see WARNING above
-                subfolders.Add path & fileName & ":"
-            End If
-        End If
-        fileName = dir
-    Loop
-    For Each subfolder In subfolders
-        subresult = listFiles(subfolder)
-        For i = 0 To UBound(subresult)
-            ReDim Preserve result(n) As String
-            result(n) = subresult(i)
-            n = n + 1
-        Next i
-    Next subfolder
-    listFiles = result
+	fileName = dir(path, vbDirectory)
+	Do While Len(fileName) > 0
+		If fileName <> "." And fileName <> ".." Then
+			If Right(fileName, 5) = ".pptx" Or Right(fileName, 4) = ".ppt" Then
+				' Note: At least on mac, replaces end bits of long names with weird stuff, so compare first 18 chars
+				' strPiece = Left(fileName, 18)
+				items.Add Array(fileName, path & fileName)
+			ElseIf IsDir(path & fileName) Then
+				' Cannot recurse here, see WARNING above
+				subfolders.Add path & fileName & ":"
+			End If
+		End If
+		fileName = dir
+	Loop
+	For Each subfolder In subfolders
+		For Each subfolderItem In listFiles(subfolder)
+			items.Add subfolderItem
+		Next subfolderItem
+	Next subfolder
+	Set listFiles = items
 End Function
 
-Public Function IsDir(ByVal path As String) As Boolean
-    If GetAttr(path) And vbDirectory Then
-        IsDir = True
-    End If
+Function IsDir(ByVal path As String) As Boolean
+	If GetAttr(path) And vbDirectory Then
+		IsDir = True
+	End If
 End Function
 
 
 
 
+
+''' CLEANER BUT DONT WORK ATTEMPTS BELOW '''
 
 
 ' FileSystemObject not found :(
@@ -149,6 +175,20 @@ Private Function listFiles(ByVal path As String) As String()
 	Next file
 
 	listFiles = result
+End Function
+
+' Doesnt work without ActiveX stuff... :(
+Function SplitRe(text As String, pattern As String, Optional ignorecase As Boolean) As String()
+	' Use example: getSongListInput = SplitRe(notes, "\n\r|\r\n|\r|\n|\s*;\s*")
+	Static re As Object
+	If re Is Nothing Then
+		Set re = CreateObject("VBScript.RegExp")
+		re.Global = True
+		re.MultiLine = True
+	End If
+	re.ignorecase = ignorecase
+	re.pattern = pattern
+	SplitRe = Strings.Split(re.Replace(text, vbNullChar), vbNullChar)
 End Function
 
 -->

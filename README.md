@@ -41,6 +41,9 @@ cp /Applications/Microsoft\ Office\ 2011/Office/Add-Ins/SundaySongs.ppam ./
 ## @todo
 - Install script for Windows + Mac
 	- Just copy the .ppam to all native PowerPoint directories
+		- "/Applications/Microsoft Office 2011/Office/Add-Ins"
+		- "C:\Program Files (x86)\Microsoft Office\Office12" ?
+		- "C:\Users\<user>\AppData\Roaming\Microsoft\AddIns" ?
 - (bonus) Create docx file with formatted song list
 	- Add to version control ignore
 

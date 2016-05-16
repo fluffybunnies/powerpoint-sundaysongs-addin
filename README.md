@@ -32,12 +32,15 @@ Concatenate several already-existing PPTs into current presentation.
 1. Open AddIn-Source.pptm
 2. Save As Add-In
 3. Suggest saving two copies: one in default PowerPoint Add-In directory for testing, and one in this repo
+```shell
+cp /Applications/Microsoft\ Office\ 2011/Office/Add-Ins/SundaySongs.ppam ./
+```
 
 
 
 ## @todo
-- Resolve the hardcoding of getSongsDirectory()
-- Get to work on both Windows and Mac
+- Get to work on Windows
+	- Tested on Mac, not Windows yet
 	- E.g. directory separators, HD root prefix, etc
 - (bonus) Create docx file with formatted song list
 	- Add to version control ignore
@@ -45,13 +48,18 @@ Concatenate several already-existing PPTs into current presentation.
 
 <!--
 
-Sub testFindAndImport()
+Sub findAndImport()
 	Dim song As Variant
 	Dim files As Collection
 	Dim file As Variant
 	Dim fileMatch As Variant
 	Dim addSlidesAfterIndex As Long
 	Dim blankSlide As Slide
+
+	If Len(ActivePresentation.Path) = 0 Then
+		MsgBox "Please save your presentation before running"
+		Exit Sub
+	End If
 
 	' Remove all but first and last slides
 	Do While ActivePresentation.Slides.Count > 2
@@ -69,7 +77,7 @@ Sub testFindAndImport()
 			End If
 		Next file
 		addSlidesAfterIndex = ActivePresentation.Slides.Count-1
-		If addSlidesAfterIndex < 0 Then addSlidesAfterIndex = 0
+		If addSlidesAfterIndex < 1 Then addSlidesAfterIndex = 1
 		If Not IsNull(fileMatch) Then
 			Debug.Print "MATCH: " & song & " == " & fileMatch(0)
 			ActivePresentation.Slides.InsertFromFile replace(replace(fileMatch(1),"Macintosh HD",""),":","/"), addSlidesAfterIndex
@@ -86,7 +94,8 @@ Function getSongsDirectory()
 	' Application.FileDialog not found?
 	' Application.FileDialog(msoFileDialogFolderPicker)
 	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
-	getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
+	' getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
+	getSongsDirectory = ActivePresentation.Path & ":"
 End Function
 
 Function getSongListInput() As Collection
@@ -120,7 +129,7 @@ Function listFiles(ByVal path As String) As Collection
 
 	fileName = dir(path, vbDirectory)
 	Do While Len(fileName) > 0
-		If fileName <> "." And fileName <> ".." Then
+		If Left(fileName,1) <> "." Then
 			If Right(fileName, 5) = ".pptx" Or Right(fileName, 4) = ".ppt" Then
 				' Note: At least on mac, replaces end bits of long names with weird stuff, so compare first 18 chars
 				' strPiece = Left(fileName, 18)

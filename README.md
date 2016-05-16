@@ -54,11 +54,101 @@ Concatenate several already-existing PPTs into current presentation.
 
 <!--
 
-Sub Test()
-    Dim filePath As String
-    filePath = "/Users/ahulce/Dropbox/SongSlidesTool/Songs/Cry of My Heart.pptx"
-    ActivePresentation.Slides.InsertFromFile filePath, 0
-    Debug.Print "sup"
+Sub testImportPpt()
+	Dim filePath As String
+	filePath = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/Give Me Faith.pptx"
+	ActivePresentation.Slides.InsertFromFile filePath, 0
+	Debug.Print "sup"
 End Sub
+
+
+Sub testListFiles()
+    Dim dirPath As String
+    Dim result() As String
+    Dim i As Integer
+
+    dirPath = getSongsDirectory()
+    result = listFiles(dirPath)
+    For i = 0 To UBound(result)
+        Debug.Print result(i)
+        'MsgBox result(i)
+    Next i
+End Sub
+
+Private Function getSongsDirectory()
+    ' Application.FileDialog not found?
+    ' Application.FileDialog(msoFileDialogFolderPicker)
+    ' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
+    getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
+End Function
+
+Private Function listFiles(ByVal path As String) As String()
+    ' WARNING: This isn't multi-client safe, could result in infinite while()
+    Dim result() As String
+    ReDim result(0) As String
+    Dim n As Integer
+    Dim fileName As String
+    Dim subfolders As New Collection
+    Dim subfolder As Variant
+    Dim subresult() As String
+    Dim i As Integer
+
+    fileName = dir(path, vbDirectory)
+    Do While Len(fileName) > 0
+        If fileName <> "." And fileName <> ".." Then
+            If Right(fileName, 5) = ".pptx" Or Right(fileName, 4) = ".ppt" Then
+                ' Note: At least on mac, replaces end bits of long names with weird stuff, so compare first 18 chars
+                ' strPiece = Left(fileName, 18)
+                ReDim Preserve result(n) As String
+                result(n) = path & fileName
+                n = n + 1
+            ElseIf IsDir(path & fileName) Then
+                ' Cannot recurse here, see WARNING above
+                subfolders.Add path & fileName & ":"
+            End If
+        End If
+        fileName = dir
+    Loop
+    For Each subfolder In subfolders
+        subresult = listFiles(subfolder)
+        For i = 0 To UBound(subresult)
+            ReDim Preserve result(n) As String
+            result(n) = subresult(i)
+            n = n + 1
+        Next i
+    Next subfolder
+    listFiles = result
+End Function
+
+Public Function IsDir(ByVal path As String) As Boolean
+    If GetAttr(path) And vbDirectory Then
+        IsDir = True
+    End If
+End Function
+
+
+
+
+
+
+' FileSystemObject not found :(
+Private Function listFiles(ByVal path As String) As String()
+	'Dim fso As New FileSystemObject
+	Dim fso As Object
+	Dim dir As Object
+	Dim file As Object
+	Dim n As Integer
+	Dim result() As String
+
+	Set fso = createObject("FileSystemObject")
+	Set dir = objFSO.GetFolder(path)
+	For Each file In dir.Files
+		ReDim Preserve result(n) As String
+		result(n) = file.path & file.name
+		n = n+1
+	Next file
+
+	listFiles = result
+End Function
 
 -->

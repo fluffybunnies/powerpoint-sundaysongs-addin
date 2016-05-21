@@ -107,6 +107,7 @@ Function findMatch(ByRef files As Collection, ByVal song As String, ByRef leadin
 
 	For i=0 To UBound(leadingTruncate)
 		Set fileMatches = findMatches(files,song,leadingTruncate(i))
+		'Debug.Print song & " | " & leadingTruncate(i) & " | " & fileMatches.Count
 		If fileMatches.Count = 1 Then
 			findMatch = fileMatches(1)
 			exit Function
@@ -124,8 +125,9 @@ Function findMatches(ByRef files As Collection, ByVal song As String, ByVal lead
 	If IsNull(leadingTruncate) Then leadingTruncate = 127
 
 	For Each file In files
-		If normalize(Left(song,leadingTruncate)) = normalize(Left(file(0),leadingTruncate)) Then
-			fileMatches.Add file
+		'Debug.Print normalize(song,leadingTruncate) & " == " & normalize(file(0),leadingTruncate)
+		If normalize(song,leadingTruncate) = normalize(file(0),leadingTruncate) And Not collectionKeyExists(fileMatches,file(0)) Then
+			fileMatches.Add file, file(0)
 		End If
 	Next file
 
@@ -191,10 +193,12 @@ Function IsDir(ByVal path As String) As Boolean
 	End If
 End Function
 
-Function normalize(ByVal str As String) As String
+Function normalize(ByVal str As String, ByVal leadingTruncate As Integer) As String
 	str = LCase(str)
 	str = Replace(Replace(str, ".pptx", ""), ".ppt", "")
 	' Note: On mac, replaces end bits of long names with weird stuff (hex?). @todo: could translate this back
+	'If onMac() And leadingTruncate > 18 Then leadingTruncate = 18
+	If Not IsNull(leadingTruncate) Then str = Left(str,leadingTruncate)
 	str = Trim(str)
 	str = stripNonAlphaNumeric(str)
 	normalize = str
@@ -225,6 +229,13 @@ Function getDirectorySeparatorFromPath(ByVal path As String) As String
 	sep = "\"
 	If UBound(Split(path, ":")) > 1 Then sep = ":"
 	getDirectorySeparatorFromPath = sep
+End Function
+
+Function collectionKeyExists(ByRef col As Collection, ByVal key As String) As Boolean
+	Dim v as Variant
+	On Error Resume Next
+	v = col(key)
+	If Err.Number = 0 Or Err.Number = 450 Then collectionKeyExists = True
 End Function
 
 Function onMac() As Boolean

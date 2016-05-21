@@ -39,16 +39,13 @@ cp /Applications/Microsoft\ Office\ 2011/Office/Add-Ins/SundaySongs.ppam ./
 
 
 ## @todo
-- Update matching logic to do a second pass with lower char count prefix in normalize() if can't find the first time
-	- E.g. Your Love Never Fails => Your Love Never Fails (Nothing Can Separate)
-	- E.g. Like a River => Like a River Before Us (Lead on O King)
 - Install script for Windows + Mac
 	- Just copy the .ppam to all native PowerPoint directories
 		- "/Applications/Microsoft Office 2011/Office/Add-Ins"
 		- "C:\Program Files (x86)\Microsoft Office\Office12" ?
 		- "C:\Users\<user>\AppData\Roaming\Microsoft\AddIns" ?
-- (bonus) Create docx file with formatted song list
-	- Add to version control ignore
+- Remove common phrases not part of song titles (e.g. "[Close]" "[Offering]")
+	- So copying + pasting from song list works without modification
 
 
 <!--
@@ -60,6 +57,8 @@ Sub findAndImport()
 	Dim fileMatch As Variant
 	Dim addSlidesAfterIndex As Long
 	Dim blankSlide As Slide
+	Dim leadingTruncateMatchChecks() As Variant
+	leadingTruncateMatchChecks = Array(127,32,24,18,12)
 
 	If Len(ActivePresentation.path) = 0 Then
 		MsgBox "Please save your presentation before running"
@@ -73,14 +72,7 @@ Sub findAndImport()
 
 	Set files = listFiles(getSongsDirectory())
 	For Each song In getSongListInput()
-		fileMatch = Null
-		For Each file In files
-			' Normalize
-			If normalize(song) = normalize(file(0)) Then
-				fileMatch = file
-				Exit For
-			End If
-		Next file
+		fileMatch = findMatch(files,song,leadingTruncateMatchChecks)
 		addSlidesAfterIndex = ActivePresentation.Slides.count - 1
 		If addSlidesAfterIndex < 1 Then addSlidesAfterIndex = 1
 		If Not IsNull(fileMatch) Then
@@ -107,6 +99,37 @@ Function getSongsDirectory()
 	' getSongsDirectory = "/Users/ahulce/Dropbox/Beachmint/powerpoint-sundaysongs-addin/example-songs/"
 	' getSongsDirectory = "Macintosh HD:Users:ahulce:Dropbox:Beachmint:powerpoint-sundaysongs-addin:example-songs:"
 	getSongsDirectory = appendDirectorySeparator(ActivePresentation.path)
+End Function
+
+Function findMatch(ByRef files As Collection, ByVal song As String, ByRef leadingTruncate() As Variant) As Variant
+	Dim fileMatches As Collection
+	Dim i As Integer
+
+	For i=0 To UBound(leadingTruncate)
+		Set fileMatches = findMatches(files,song,leadingTruncate(i))
+		If fileMatches.Count = 1 Then
+			findMatch = fileMatches(1)
+			exit Function
+		ElseIf fileMatches.Count > 1 Then
+			findMatch = Null
+			exit Function
+		End If
+	Next i
+	findMatch = Null
+End Function
+
+Function findMatches(ByRef files As Collection, ByVal song As String, ByVal leadingTruncate As Integer) As Collection
+	Dim fileMatches As New Collection
+
+	If IsNull(leadingTruncate) Then leadingTruncate = 127
+
+	For Each file In files
+		If normalize(Left(song,leadingTruncate)) = normalize(Left(file(0),leadingTruncate)) Then
+			fileMatches.Add file
+		End If
+	Next file
+
+	Set findMatches = fileMatches
 End Function
 
 Function getSongListInput() As Collection
@@ -169,11 +192,10 @@ Function IsDir(ByVal path As String) As Boolean
 End Function
 
 Function normalize(ByVal str As String) As String
-	' Note: On mac, replaces end bits of long names with weird stuff. @todo: there's a way to fix this
-	If onMac() Then str = Left(str, 18)
-	str = Trim(str)
 	str = LCase(str)
 	str = Replace(Replace(str, ".pptx", ""), ".ppt", "")
+	' Note: On mac, replaces end bits of long names with weird stuff (hex?). @todo: could translate this back
+	str = Trim(str)
 	str = stripNonAlphaNumeric(str)
 	normalize = str
 End Function
